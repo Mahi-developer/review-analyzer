@@ -1,3 +1,5 @@
+import os.path
+
 import firebase_admin
 from firebase_admin import (
     credentials,
@@ -11,13 +13,13 @@ import requests
 
 class FirebaseService:
 
-    def __init__(self, asin):
+    def __init__(self, uid):
         self.db = None
         self.storage_bucket = None
         self.base_url = 'https://firebasestorage.googleapis.com/v0/b/sentimental-analysis-fproject.appspot.com/o/' \
-                        + asin
-        self.asin = asin
-        self.asin_url = asin + '/'
+                        + uid
+        self.uid = uid
+        self.asin_url = uid + '/'
         self.files = [
             'word_cloud.png',
             'reviews_pie_chart.png',
@@ -92,26 +94,43 @@ class FirebaseService:
             )
             raise Exception('Firebase connection error generating url files in firebase | ' + e.__str__())
 
-    async def save(self, analysis):
+    async def update(self, analysis):
         try:
             if self.db:
-                doc_ref = self.db.collection(u'products').document(self.asin)
+                doc_ref = self.db.collection(u'products').document(self.uid)
             else:
                 self.connect()
-                doc_ref = self.db.collection(u'products').document(self.asin)
+                doc_ref = self.db.collection(u'products').document(self.uid)
             doc_ref.update(
                 {
                     u'analysis': analysis,
-                    u'analysisDone': True
+                    u'is_analysis_done': True
                 }
             )
-            logger.info('Analysis saved in firestore successfully!')
+            await self.clean_reviews_json_file()
+            logger.info('Analysis updated in firestore successfully!')
         except Exception as e:
             logger.error(
-                'Unexpected exception occurred while saving analysis in firestore -- \n' +
+                'Unexpected exception occurred while updating analysis in firestore -- \n' +
                 e.__str__()
             )
-            raise Exception('Unexpected exception occurred while saving analysis in firestore | ' + e.__str__())
+            raise Exception('Unexpected exception occurred while updating analysis in firestore | ' + e.__str__())
+
+    async def save(self, product):
+        try:
+            if self.db:
+                doc_ref = self.db.collection(u'products').document(self.uid)
+            else:
+                self.connect()
+                doc_ref = self.db.collection(u'products').document(self.uid)
+            doc_ref.set(product)
+            logger.info('Product saved in firestore successfully!')
+        except Exception as e:
+            logger.error(
+                'Unexpected exception occurred while saving product in firestore -- \n' +
+                e.__str__()
+            )
+            raise Exception('Unexpected exception occurred while saving product in firestore | ' + e.__str__())
 
     async def upload_wc_to_bucket(self):
         try:
@@ -152,3 +171,10 @@ class FirebaseService:
                 e.__str__()
             )
             raise Exception('Unexpected exception occurred while uploading graph plot images | ' + e.__str__())
+
+    @staticmethod
+    async def clean_reviews_json_file():
+        if os.path.exists('reviews.json'):
+            os.remove('reviews.json')
+        else:
+            logger.warning('| firebase | no file found reviews.json')

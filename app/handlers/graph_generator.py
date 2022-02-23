@@ -39,7 +39,7 @@ class Plotter:
     def __init__(self, label, meta_data):
         self.label = label
         self.meta_data = meta_data
-        self.asin = meta_data.get('asin')
+        self.asin = meta_data.get('uid')
         self.files = [
             'reviews_pie_chart.png',
             'ratings_bar_graph.png',
