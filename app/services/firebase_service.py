@@ -1,4 +1,5 @@
 import os.path
+import threading
 
 import firebase_admin
 from firebase_admin import (
@@ -26,6 +27,7 @@ class FirebaseService:
             'ratings_bar_graph.png',
             'price_graph.png'
         ]
+        self.callback_done = None
         try:
             firebase_admin.get_app()
         except ValueError:
@@ -54,7 +56,6 @@ class FirebaseService:
                 'Unexpected exception occurred while connecting with firebase -- \n' +
                 e.__str__()
             )
-            raise Exception('Firebase Connection Error | ' + e.__str__())
 
     async def check_is_existing(self):
         try:
@@ -73,7 +74,6 @@ class FirebaseService:
                 'Unexpected exception occurred while checking for existing files in firebase | \n' +
                 e.__str__()
             )
-            raise Exception('Firebase connection error while checking for existing files | ' + e.__str__())
         return False
 
     async def generate_public_urls(self):
@@ -92,7 +92,6 @@ class FirebaseService:
                 'Unexpected exception occurred while generating url files in firebase | \n' +
                 e.__str__()
             )
-            raise Exception('Firebase connection error generating url files in firebase | ' + e.__str__())
 
     async def update(self, analysis):
         try:
@@ -114,7 +113,6 @@ class FirebaseService:
                 'Unexpected exception occurred while updating analysis in firestore -- \n' +
                 e.__str__()
             )
-            raise Exception('Unexpected exception occurred while updating analysis in firestore | ' + e.__str__())
 
     async def save(self, product):
         try:
@@ -130,7 +128,6 @@ class FirebaseService:
                 'Unexpected exception occurred while saving product in firestore -- \n' +
                 e.__str__()
             )
-            raise Exception('Unexpected exception occurred while saving product in firestore | ' + e.__str__())
 
     async def upload_wc_to_bucket(self):
         try:
@@ -146,7 +143,6 @@ class FirebaseService:
                 'Unexpected exception occurred while uploading word cloud -- \n' +
                 e.__str__()
             )
-            raise Exception('Unexpected exception occurred while uploading word cloud | ' + e.__str__())
 
     async def upload_gps_to_bucket(self):
         try:
@@ -170,7 +166,38 @@ class FirebaseService:
                 'Unexpected exception occurred while uploading graph plot images -- \n' +
                 e.__str__()
             )
-            raise Exception('Unexpected exception occurred while uploading graph plot images | ' + e.__str__())
+
+    async def get_product(self, uid):
+        try:
+            if self.db:
+                doc_ref = self.db.collection(u'products').document(uid)
+            else:
+                self.connect()
+                doc_ref = self.db.collection(u'products').document(uid)
+
+            if doc_ref:
+                return doc_ref.get().to_dict()
+            logger.info('Product saved in firestore successfully!')
+        except Exception as e:
+            logger.error(
+                'Unexpected exception occurred while fetching product details -- \n' +
+                e.__str__()
+            )
+        return None
+
+    # callback on_snapshot function to capture changes
+    def on_snapshot(self, doc_snapshot, changes, read_time):
+        self.callback_done.set()
+        return doc_snapshot
+
+    async def wait_and_get(self, uid):
+        self.callback_done = threading.Event()
+        doc_ref = self.db.collection(u'products').document(uid)
+
+        # Watch the document
+        doc_watch = doc_ref.on_snapshot(self.on_snapshot)
+        print(doc_watch)
+        # return doc_watch
 
     @staticmethod
     async def clean_reviews_json_file():

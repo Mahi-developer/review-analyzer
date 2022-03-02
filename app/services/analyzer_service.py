@@ -40,9 +40,9 @@ class Analyzer:
             # Todo analyze review from the unique api endpoint
 
             # self.created_dtm = datetime.now().strftime('%d-%m-%y %H:%M:%S')
-            # response = self.process_req()
-            # response = await self.generate_response(prediction)
-            # await self.firebase_service.update(response)
+            # dom = self.process_req()
+            # dom = await self.generate_response(prediction)
+            # await self.firebase_service.update(dom)
 
         except Exception as e:
             error = f"{e.__str__()} Unexpected exception caught for this request"
@@ -71,7 +71,7 @@ class Analyzer:
             }
 
         except Exception as e:
-            error = f"{e.__str__()} Unexpected exception caught while generating response"
+            error = f"{e.__str__()} Unexpected exception caught while generating dom"
             logger.error(error)
             raise exceptions.get('analyzer').__new__(self, e, error)
 
@@ -94,5 +94,5 @@ class Analyzer:
             'reviews': self.reviews
         }
         response = requests.post(req, json=json_data)
-        logger.info('response | ' + response.text)
+        logger.info('dom | ' + response.text)
         return response.json()

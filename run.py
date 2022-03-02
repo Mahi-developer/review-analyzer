@@ -1,8 +1,9 @@
 from sanic import Sanic, response
 from app.controllers.controller import bp_controller
+from app.controllers.ui_controller import ui_controller
 
 app = Sanic(name=__name__)
-app.blueprint(blueprint=bp_controller)
+app.blueprint(blueprint=[bp_controller, ui_controller])
 
 
 @app.route('/ping')
