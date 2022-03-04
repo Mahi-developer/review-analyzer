@@ -1,9 +1,10 @@
-import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
 from sanic.log import logger
 from lxml import etree
+from app.utils.utils import process_integer_from_string, separate_shop_name, separate_uid_from_url
+from utils.config import environ_config
 
 tag_identifiers = {
     'title': "//div[@class='fbrNcd']/a",
@@ -53,6 +54,7 @@ amazon_tag_identifiers = {
 class ProductExtractor:
     def __init__(self, uid):
         self.dom = None
+        self.soup = None
         if not uid:
             logger.warning(f'| {self.__class__.__name__} | uid param was null - it should not be null')
             raise Exception('uid should not be null')
@@ -60,10 +62,10 @@ class ProductExtractor:
         self.product = {}
         self.urls = {
             # replace the uid
-            'product': f'https://www.google.com/shopping/product/r/IN/{uid}/',
-            'reviews': f'https://www.google.com/shopping/product/r/IN/{uid}/reviews/',
-            'offers': f'https://www.google.com/shopping/product/r/IN/{uid}#online/',
-            'specs': f'https://www.google.com/shopping/product/r/IN/{uid}/specs/',
+            'product': f'https://www.google.com/shopping/product/{uid}/',
+            'reviews': f'https://www.google.com/shopping/product/{uid}/reviews/',
+            'offers': f'https://www.google.com/shopping/product/{uid}#online/',
+            'specs': f'https://www.google.com/shopping/product/{uid}/specs/',
             'amazon': 'https://www.amazon.in/s?k='
         }
         self.base_url = 'https://www.google.com'
@@ -77,8 +79,10 @@ class ProductExtractor:
         )
         self.session = requests.session()
 
-    async def extract(self):
-        with self.session.get(self.urls.get('product'), headers=self.headers) as response:
+    async def extract(self, url=None):
+        if not url:
+            url = self.urls.get('product')
+        with self.session.get(url, headers=self.headers) as response:
             if response.status_code == 200:
                 await self.parse(response)
             else:
@@ -90,8 +94,8 @@ class ProductExtractor:
 
     async def parse(self, response):
         logger.info(f'| {self.__class__.__name__} | started parsing the product details')
-        soup = BeautifulSoup(response.content, "html.parser")
-        self.dom = etree.HTML(str(soup))
+        self.soup = BeautifulSoup(response.content, "html.parser")
+        self.dom = etree.HTML(str(self.soup))
         title = self.dom.xpath(tag_identifiers.get('title'))[0].text
         shop = self.dom.xpath(tag_identifiers.get('best-price-shop'))[0]
         if 'Visit site of ' in shop:
@@ -101,12 +105,14 @@ class ProductExtractor:
             'analysis': None,
             'is_analysis_done': False,
             'title': title,
-            'best_price': self.dom.xpath(tag_identifiers.get('best-price'))[0].text,
-            'best_price_shop': shop,
-            'best_price_delivery': self.dom.xpath(tag_identifiers.get('best-price-delivery'))[0].text,
-            'source_url': self.dom.xpath(tag_identifiers.get('source-url'))[0].replace('/url?q=', ''),
+            'best_offer': {
+                'price': process_integer_from_string(self.dom.xpath(tag_identifiers.get('best-price'))[0].text),
+                'shop': separate_shop_name(shop),
+                'delivery': self.dom.xpath(tag_identifiers.get('best-price-delivery'))[0].text,
+                'url': self.dom.xpath(tag_identifiers.get('source-url'))[0].replace('/url?q=', ''),
+            },
             'image': self.dom.xpath(tag_identifiers.get('image'))[0],
-            'url': self.urls.get('product'),
+            'url': environ_config.UI_URLS.get('product') + self.uid
         }
         title_sq = quote_plus(title.strip())
         self.urls['amazon'] = self.urls.get('amazon') + title_sq.replace('-', '')
@@ -116,8 +122,6 @@ class ProductExtractor:
         with self.session.get(self.urls.get('specs'), headers=self.headers) as response:
             if response.status_code == 200:
                 await self.parse_specs(response)
-        # with self.session.get(self.urls.get('amazon'), headers=self.headers) as response:
-        #     self.parse_amazon(response)
         return self.product
 
     async def parse_specs(self, response):
@@ -142,36 +146,32 @@ class ProductExtractor:
             'text': detail_text
         }
 
+        spec_flat = None
+        spec_flat_div = soup.findAll('div', class_='VOVcm')
+        if len(spec_flat_div) > 0:
+            spec_flat = spec_flat_div[1].text
+
         specs = {
             'headers': headers,
-            'specifications_flat': dom.xpath(spec_tag_identifiers.get('base-specs'))[0].text,
+            'specifications_flat': spec_flat,
             'details': detail
         }
         self.product['specifications'] = specs
 
     async def parse_price(self):
         logger.info(f'| {self.__class__.__name__} | started parsing the price')
-
         prices = []
-        shop_obj = self.dom.xpath(price_tag_identifiers.get('shop'))
-        delivery_obj = self.dom.xpath(price_tag_identifiers.get('base') + price_tag_identifiers.get('delivery'))
-        price_obj = self.dom.xpath(price_tag_identifiers.get('base') + price_tag_identifiers.get('price'))
-        url_obj = self.dom.xpath(price_tag_identifiers.get('url'))
-        if price_obj:
-            for i in range(0, len(price_obj)):
-                if len(price_obj) == len(delivery_obj):
-                    price_json = {
-                        'shop': shop_obj[i].text,
-                        'price': price_obj[i].text,
-                        'delivery': delivery_obj[i].text,
-                        'source': url_obj[i].replace('/url?q=', '')
-                    }
-                else:
-                    price_json = {
-                        'shop': shop_obj[i].text,
-                        'price': price_obj[i].text,
-                        'delivery': None,
-                        'source': url_obj[i].text.replace('/url?q=', '')
+        div = self.soup.findAll('div', class_='t9KcM')
+        if div:
+            for i in div:
+                delivery = i.find('div', class_='izR5zd')
+                if delivery:
+                    delivery = delivery.text
+                price_json = {
+                    'shop': separate_shop_name(i.find('a').text),
+                    'price': process_integer_from_string(i.find('div', class_='WwE9ce').text),
+                    'delivery': delivery,
+                    'source': i.find('a')['href'].replace('/url?q=', '')
                     }
                 prices.append(price_json)
 
@@ -180,8 +180,13 @@ class ProductExtractor:
     async def parse_rating(self):
         logger.info(f'| {self.__class__.__name__} | started parsing the ratings')
 
-        text = self.dom.xpath(rating_tag_identifiers.get('text'))[0].text
-        count = self.dom.xpath(rating_tag_identifiers.get('count'))[0].text.split(' ')[0]
+        text, count = None, None
+        t = self.dom.xpath(rating_tag_identifiers.get('text'))
+        if t:
+            text = t[0].text
+        c = self.dom.xpath(rating_tag_identifiers.get('count'))
+        if c:
+            count = c[0].text.split(' ')[0]
 
         breakdown = self.dom.xpath(rating_tag_identifiers.get('breakdown'))
         rating_breakdown = {}
@@ -207,33 +212,36 @@ class ProductExtractor:
 
     async def parse_related(self):
         related = []
-        title = self.dom.xpath(related_tag_identifiers.get('title'))
-        price = self.dom.xpath(related_tag_identifiers.get('price'))
-        image = self.dom.xpath(related_tag_identifiers.get('image'))
-        url = self.dom.xpath(related_tag_identifiers.get('url'))
+        related_div = self.soup.findAll('div', class_='r240Sd')
+        # title = self.dom.xpath(related_tag_identifiers.get('title'))
+        # price = self.dom.xpath(related_tag_identifiers.get('price'))
+        # image = self.dom.xpath(related_tag_identifiers.get('image'))
+        # url = self.dom.xpath(related_tag_identifiers.get('url'))
 
-        if title:
-            for i in range(0, len(title)):
+        if related_div:
+            for i in related_div:
+                url = i.find('a')['href']
                 pro = {
-                    'title': title[i].text,
-                    'price': price[i].text,
-                    'image': image[i],
-                    'source': self.base_url + url[i]
+                    'title': i.find('div', class_='RHM0Hd').text,
+                    'price': process_integer_from_string(i.find('span', class_='wuySkd').text),
+                    'image': i.find('img')['src'],
+                    'source': self.base_url + url,
+                    'url': environ_config.UI_URLS.get('product') + separate_uid_from_url(url)
                 }
                 related.append(pro)
 
         self.product['related'] = related
 
-    async def parse_amazon(self, response):
-        soup = BeautifulSoup(response.content, "html.parser")
-        dom = etree.HTML(str(soup))
-        self.product['asin'] = dom.xpath(amazon_tag_identifiers.get('asin'))
-        amazon_price = dom.xpath(amazon_tag_identifiers.get('price'))[0].text
-        delivery_status = 'Delivery charges applicable as per Amazons policy.'
-        price = {
-            'shop': 'Amazon',
-            'price': amazon_price,
-            'delivery': delivery_status,
-            'source': self.amazon_url + self.product['asin']
-        }
-        self.product.get('offers').append(price)
+    # async def parse_amazon(self, response):
+    #     soup = BeautifulSoup(response.content, "html.parser")
+    #     dom = etree.HTML(str(soup))
+    #     self.product['asin'] = dom.xpath(amazon_tag_identifiers.get('asin'))
+    #     amazon_price = dom.xpath(amazon_tag_identifiers.get('price'))[0].text
+    #     delivery_status = 'Delivery charges applicable as per Amazons policy.'
+    #     price = {
+    #         'shop': 'Amazon',
+    #         'price': process_integer_from_string(amazon_price),
+    #         'delivery': delivery_status,
+    #         'source': self.amazon_url + self.product['asin']
+    #     }
+    #     self.product.get('offers').append(price)

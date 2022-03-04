@@ -1,15 +1,17 @@
-import re
+import requests
+
 from datetime import datetime
 from sanic.log import logger
-from app.utils.exceptions import exceptions
 from app.services.firebase_service import FirebaseService
-import requests
+from app.utils.utils import preprocess_reviews
+from utils.config import environ_config
 
 
 class Analyzer:
 
     def __init__(self, reviews, meta_data):
-        self.reviews = reviews
+        if not meta_data.get('is_preprocessed'):
+            self.reviews = preprocess_reviews(reviews)
         self.meta_data = meta_data
         self.uid = meta_data.get('uid')
         self.created_dtm = None
@@ -22,21 +24,17 @@ class Analyzer:
                 logger.info(f"started processing reviews for request")
                 await self.predict()
                 return True
-            error = f"Not able to start processing for this request"
+            error = f" Not able to start process this request in analyze"
             logger.warning(error)
             return False
 
         except Exception as e:
-            error = f"{e.__str__()} for this request"
+            error = f"| {self.__class__.__name__} | {e.__str__()} for this request in analyze"
             logger.error(error)
-            raise exceptions.get('analyzer').__new__(self, e, error)
 
     async def predict(self):
         try:
-            is_preprocessed = self.meta_data.get('is_preprocessed')
-            if not is_preprocessed:
-                self.reviews = self.preprocess_reviews()
-
+            a = None
             # Todo analyze review from the unique api endpoint
 
             # self.created_dtm = datetime.now().strftime('%d-%m-%y %H:%M:%S')
@@ -45,10 +43,10 @@ class Analyzer:
             # await self.firebase_service.update(dom)
 
         except Exception as e:
-            error = f"{e.__str__()} Unexpected exception caught for this request"
+            error = f"| {self.__class__.__name__} | {e.__str__()} Unexpected exception caught while prediction"
             logger.error(error)
-            raise exceptions.get('analyzer').__call__(self, e, error)
 
+    # Todo needed to be changed accordingly to the response
     async def generate_response(self, prediction: list):
         try:
             total_reviews = len(self.reviews)
@@ -71,28 +69,16 @@ class Analyzer:
             }
 
         except Exception as e:
-            error = f"{e.__str__()} Unexpected exception caught while generating dom"
+            error = f"| {self.__class__.__name__} | {e.__str__()} Unexpected exception caught while generating response"
             logger.error(error)
-            raise exceptions.get('analyzer').__new__(self, e, error)
-
-    def preprocess_reviews(self):
-        reviews = [
-            re.sub(r'[^a-zA-Z0-9]', ' ', review.replace('\n', '').strip())
-            for review in self.reviews
-        ]
-        out = []
-        for review in reviews:
-            if len(review) <= 256:
-                out.append(review)
-        if len(out) > 50:
-            return out[0:50]
-        return out
 
     def process_req(self):
-        req = 'http://localhost:8005/analyze'
         json_data = {
             'reviews': self.reviews
         }
-        response = requests.post(req, json=json_data)
-        logger.info('dom | ' + response.text)
+        response = requests.post(
+            url=environ_config.ANALYZER_URL,
+            json=json_data
+        )
+        logger.info(f'| {self.__class__.__name__} | {response.text}')
         return response.json()

@@ -17,7 +17,7 @@ class ReviewExtractor:
             logger.warning(f'| {self.__class__.__name__} | uid param was null - it should not be null')
             raise Exception('uid should not be null')
         self.uid = uid
-        self.url = f'https://www.google.com/shopping/product/r/IN/{uid}/reviews?prds=rnum:4'
+        self.url = f'https://www.google.com/shopping/product/{uid}/reviews?prds=rnum:4'
         self.reviews = []
         self.base_url = 'https://www.google.com'
         self.session = requests.session()
@@ -45,7 +45,9 @@ class ReviewExtractor:
             'reviews': self.reviews,
             'meta_data': {
                 'total_reviews': self.total_count,
-                'neutral_reviews': self.neutral_count
+                'neutral_reviews': self.neutral_count,
+                'is_processed': False,
+                'uid': self.uid
             }
         }
 

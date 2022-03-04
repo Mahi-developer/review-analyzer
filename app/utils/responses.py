@@ -25,5 +25,10 @@ responses = {
         'status_code': 401,
         'status': 'failure',
         'message': 'Not able to process the reviews now, kindly try after sometime!'
+    },
+    402: {
+        'status_code': 402,
+        'status': 'failure',
+        'message': 'Not able to process the current chosen Product!'
     }
 }
