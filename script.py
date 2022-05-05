@@ -13,7 +13,7 @@ def run():
 
 
 def test():
-    re = ReviewExtractor('8829305278559966706')
+    re = ReviewExtractor('1315870109474817641')
     resp = asyncio.run(re.extract())
     print(resp)
 
@@ -42,4 +42,4 @@ def test_run():
 
 
 if __name__ == '__main__':
-    run()
+    test()

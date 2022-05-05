@@ -1,6 +1,6 @@
 from app.scrapper.product_extractor import ProductExtractor
 from app.scrapper.review_extractor import ReviewExtractor
-from app.scrapper.search_extractor import SearchExtractor
+from app.scrapper import search_extractor
 from app.services.analyzer_service import Analyzer
 from sanic.log import logger
 
@@ -23,5 +23,5 @@ async def extract_reviews_data(uid):
 
 
 async def extract_search_data(search_query):
-    se = SearchExtractor(search_query)
+    se = search_extractor.SearchExtractor(search_query)
     return await se.extract()

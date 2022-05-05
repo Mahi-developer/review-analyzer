@@ -70,6 +70,7 @@ class ProductExtractor:
         }
         self.base_url = 'https://www.google.com'
         self.amazon_url = 'https://www.amazon.in/dp/'
+        self.alter_url = f'https://www.google.com/shopping/product/1?prds=pid:{uid}'
         self.headers = (
             {
                 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
@@ -96,33 +97,37 @@ class ProductExtractor:
         logger.info(f'| {self.__class__.__name__} | started parsing the product details')
         self.soup = BeautifulSoup(response.content, "html.parser")
         self.dom = etree.HTML(str(self.soup))
-        title = self.dom.xpath(tag_identifiers.get('title'))[0].text
-        shop = self.dom.xpath(tag_identifiers.get('best-price-shop'))[0]
-        if 'Visit site of ' in shop:
-            shop = shop.replace('Visit site of ', '')
-        self.product = {
-            'uid': self.uid,
-            'analysis': None,
-            'is_analysis_done': False,
-            'title': title,
-            'best_offer': {
-                'price': process_integer_from_string(self.dom.xpath(tag_identifiers.get('best-price'))[0].text),
-                'shop': separate_shop_name(shop),
-                'delivery': self.dom.xpath(tag_identifiers.get('best-price-delivery'))[0].text,
-                'url': self.dom.xpath(tag_identifiers.get('source-url'))[0].replace('/url?q=', ''),
-            },
-            'image': self.dom.xpath(tag_identifiers.get('image'))[0],
-            'url': environ_config.UI_URLS.get('product') + self.uid
-        }
-        title_sq = quote_plus(title.strip())
-        self.urls['amazon'] = self.urls.get('amazon') + title_sq.replace('-', '')
-        await self.parse_price()
-        await self.parse_rating()
-        await self.parse_related()
-        with self.session.get(self.urls.get('specs'), headers=self.headers) as response:
-            if response.status_code == 200:
-                await self.parse_specs(response)
-        return self.product
+        try:
+            title = self.dom.xpath(tag_identifiers.get('title'))[0].text
+            shop = self.dom.xpath(tag_identifiers.get('best-price-shop'))[0]
+            if 'Visit site of ' in shop:
+                shop = shop.replace('Visit site of ', '')
+            self.product = {
+                'uid': self.uid,
+                'analysis': None,
+                'is_analysis_done': False,
+                'title': title,
+                'best_offer': {
+                    'price': process_integer_from_string(self.dom.xpath(tag_identifiers.get('best-price'))[0].text),
+                    'shop': separate_shop_name(shop),
+                    'delivery': self.dom.xpath(tag_identifiers.get('best-price-delivery'))[0].text,
+                    'url': self.dom.xpath(tag_identifiers.get('source-url'))[0].replace('/url?q=', ''),
+                },
+                'image': self.dom.xpath(tag_identifiers.get('image'))[0],
+                'url': environ_config.UI_URLS.get('product') + self.uid
+            }
+            title_sq = quote_plus(title.strip())
+            self.urls['amazon'] = self.urls.get('amazon') + title_sq.replace('-', '')
+            await self.parse_price()
+            await self.parse_rating()
+            await self.parse_related()
+            with self.session.get(self.urls.get('specs'), headers=self.headers) as response:
+                if response.status_code == 200:
+                    await self.parse_specs(response)
+            return self.product
+        except IndexError:
+            await self.extract(self.alter_url)
+        return None
 
     async def parse_specs(self, response):
         logger.info(f'| {self.__class__.__name__} | started parsing the specs')
@@ -193,7 +198,7 @@ class ProductExtractor:
         if breakdown:
             processed_breakdowns = []
             for i in breakdown:
-                processed_breakdowns.append(int(i.split(' ')[0]))
+                processed_breakdowns.append(process_integer_from_string(i.split(' ')[0]))
             rating_breakdown = {
                 'five_star': processed_breakdowns[0],
                 'four_star': processed_breakdowns[1],

@@ -5,8 +5,7 @@ from datetime import datetime
 from sanic.log import logger
 from bs4 import BeautifulSoup
 
-from app.scrapper.extract_handler import extract_product_data, extract_reviews_data
-from app.services.analyzer_service import Analyzer
+from app.scrapper import extract_handler
 from app.services.firebase_service import FirebaseService
 from app.utils.utils import (
     process_integer_from_string,
@@ -93,11 +92,11 @@ class SearchExtractor:
     async def parse(self):
         logger.info(f'| {self.__class__.__name__} | started parsing the product info to store in firebase')
         for uid in self.uid_list:
-            product = await extract_product_data(uid=uid)
+            product = await extract_handler.extract_product_data(uid=uid)
             firebase = FirebaseService(uid)
             await firebase.save(product)
             if not product.get('is_analysis_done'):
-                await extract_reviews_data(uid)
+                await extract_handler.extract_reviews_data(uid)
             else:
                 logger.warning(f'| {self.__class__.__name__} | Analysis is already available!')
 

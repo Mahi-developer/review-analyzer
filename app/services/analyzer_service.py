@@ -34,38 +34,26 @@ class Analyzer:
 
     async def predict(self):
         try:
-            a = None
             # Todo analyze review from the unique api endpoint
-
-            # self.created_dtm = datetime.now().strftime('%d-%m-%y %H:%M:%S')
-            # dom = self.process_req()
-            # dom = await self.generate_response(prediction)
-            # await self.firebase_service.update(dom)
+            self.created_dtm = datetime.now().strftime('%d-%m-%y %H:%M:%S')
+            json = self.process_req()
+            resp = await self.generate_response(json)
+            await self.firebase_service.update(resp)
 
         except Exception as e:
             error = f"| {self.__class__.__name__} | {e.__str__()} Unexpected exception caught while prediction"
             logger.error(error)
 
-    # Todo needed to be changed accordingly to the response
-    async def generate_response(self, prediction: list):
+    # Todo need to change the response accordingly
+    async def generate_response(self, prediction: dict):
         try:
-            total_reviews = len(self.reviews)
-            positive_reviews = prediction.count('positive')
-            negative_reviews = prediction.count('negative')
-            neutral_reviews = prediction.count('neutral')
-
             return {
                 'meta-data': {
                     'created_dtm': self.created_dtm,
                     'updated_dtm': datetime.now().strftime('%d-%m-%y %H:%M:%S'),
                     'call_back': False
                 },
-                'output': {
-                    'total': int(total_reviews),
-                    'positive': int(positive_reviews),
-                    'negative': int(negative_reviews),
-                    'neutral': int(neutral_reviews),
-                }
+                'analysis': prediction,
             }
 
         except Exception as e:

@@ -21,9 +21,9 @@ async def product(request, uid):
                     asyncio.get_running_loop()
                 )
             await firebase.save(resp)
-            return response.json(resp)
-
-    return response.json(responses.get(402))
+        else:
+            return response.json(responses.get(402))
+    return response.json(resp)
 
 
 @ui_controller.route('/search/<search_term>', methods=['POST', 'GET'])
