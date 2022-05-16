@@ -1,6 +1,6 @@
 
 class Config:
-    ANALYZER_URL = 'http://45.79.125.92:8080/analyze'
+    ANALYZER_URL = 'http://172.105.49.246:8080/analyze'
     UI_URLS = {
         'base': 'http://localhost:8006/',
         'product': 'http://localhost:8006/product/',

@@ -78,7 +78,7 @@ class ReviewExtractor:
                     if 'reviews?' in i['href']:
                         next_page = i['href']
             total_reviews = dom.xpath(total_review_count_identifier)[0].text.split(' ')[0]
-            if process_integer_from_string(total_reviews) > len(self.reviews) and len(self.reviews) < 300:
+            if process_integer_from_string(total_reviews) > len(self.reviews) and len(self.reviews) < 50:
                 if next_page:
                     next_page_url = self.base_url + next_page
                     response = requests.get(url=next_page_url, headers=self.headers)

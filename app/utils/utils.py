@@ -37,3 +37,6 @@ def preprocess_review(r):
     * ratings_count
     * delivery  
 '''
+
+# git hub token
+# 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

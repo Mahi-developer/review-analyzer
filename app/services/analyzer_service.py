@@ -65,8 +65,8 @@ class Analyzer:
             "reviews": self.reviews
         }
         obj = json.dumps(json_data)
-        # with(open('reviews.json', 'w')) as f:
-        #     f.write(obj)
+        with(open('reviews.json', 'w')) as f:
+            f.write(obj)
         response = requests.post(
             url=environ_config.ANALYZER_URL,
             json=obj
