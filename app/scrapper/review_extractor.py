@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from lxml import etree
 from sanic.log import logger
-from app.utils.utils import process_integer_from_string
+from app.utils.utils import process_integer_from_string, preprocess_review
 
 review_tag_identifier = "//div[@class='Rw0r3e']/div[last()]"
 rating_tag_identifier = "//div[@class='Yoga0 DApVsf']/@aria-label"
@@ -67,7 +67,7 @@ class ReviewExtractor:
                         self.neutral_count += 1
                     else:
                         self.reviews.append(
-                            review_obj[i].text
+                            preprocess_review(review_obj[i].text)
                         )
             next_page = None
             if self.count < 1:
@@ -78,7 +78,7 @@ class ReviewExtractor:
                     if 'reviews?' in i['href']:
                         next_page = i['href']
             total_reviews = dom.xpath(total_review_count_identifier)[0].text.split(' ')[0]
-            if process_integer_from_string(total_reviews) > len(self.reviews):
+            if process_integer_from_string(total_reviews) > len(self.reviews) and len(self.reviews) < 300:
                 if next_page:
                     next_page_url = self.base_url + next_page
                     response = requests.get(url=next_page_url, headers=self.headers)

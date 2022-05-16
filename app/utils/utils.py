@@ -26,6 +26,10 @@ def preprocess_reviews(r):
     ]
 
 
+def preprocess_review(r):
+    return re.sub(r'[^a-zA-Z]', ' ', r.replace('\n', '').strip())
+
+
 # if __name__ == '__main__':
 # Todo see the following are getting null for values that also present for sample uid 7596414811817512508
 ''' 

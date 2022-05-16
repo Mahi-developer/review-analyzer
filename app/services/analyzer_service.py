@@ -1,17 +1,17 @@
+import json
+
 import requests
 
 from datetime import datetime
 from sanic.log import logger
 from app.services.firebase_service import FirebaseService
-from app.utils.utils import preprocess_reviews
 from utils.config import environ_config
 
 
 class Analyzer:
 
     def __init__(self, reviews, meta_data):
-        if not meta_data.get('is_preprocessed'):
-            self.reviews = preprocess_reviews(reviews)
+        self.reviews = reviews
         self.meta_data = meta_data
         self.uid = meta_data.get('uid')
         self.created_dtm = None
@@ -36,8 +36,8 @@ class Analyzer:
         try:
             # Todo analyze review from the unique api endpoint
             self.created_dtm = datetime.now().strftime('%d-%m-%y %H:%M:%S')
-            json = self.process_req()
-            resp = await self.generate_response(json)
+            json_ = self.process_req()
+            resp = await self.generate_response(json_)
             await self.firebase_service.update(resp)
 
         except Exception as e:
@@ -62,11 +62,14 @@ class Analyzer:
 
     def process_req(self):
         json_data = {
-            'reviews': self.reviews
+            "reviews": self.reviews
         }
+        obj = json.dumps(json_data)
+        # with(open('reviews.json', 'w')) as f:
+        #     f.write(obj)
         response = requests.post(
             url=environ_config.ANALYZER_URL,
-            json=json_data
+            json=obj
         )
         logger.info(f'| {self.__class__.__name__} | {response.text}')
         return response.json()

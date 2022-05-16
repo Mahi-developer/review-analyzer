@@ -14,15 +14,15 @@ async def product(request, uid):
     resp = await firebase.get_product(uid)
     if not resp:
         resp = await extract_handler.extract_product_data(uid)
-        if resp:
-            if not resp.get('is_analysis_done'):
-                asyncio.run_coroutine_threadsafe(
-                    extract_handler.extract_reviews_data(uid),
-                    asyncio.get_running_loop()
-                )
-            await firebase.save(resp)
-        else:
-            return response.json(responses.get(402))
+    if resp:
+        if not resp.get('is_analysis_done'):
+            asyncio.run_coroutine_threadsafe(
+                extract_handler.extract_reviews_data(uid),
+                asyncio.get_running_loop()
+            )
+        await firebase.save(resp)
+    else:
+        return response.json(responses.get(402))
     return response.json(resp)
 
 
