@@ -1,10 +1,12 @@
 from sanic import Sanic, response
 from app.controllers.controller import bp_controller
 from app.controllers.ui_controller import ui_controller
+from sanic_cors import CORS, cross_origin
 
+CORS_OPTIONS = {"resources": r'/*', "origins": "*", "methods": ["GET", "POST", "HEAD", "OPTIONS"]}
 app = Sanic(name=__name__)
 app.blueprint(blueprint=[bp_controller, ui_controller])
-
+CORS(app)
 
 @app.route('/ping')
 async def ping_check(request):
