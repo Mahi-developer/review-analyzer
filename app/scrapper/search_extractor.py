@@ -37,10 +37,10 @@ class SearchExtractor:
         with self.session.get(self.url, headers=self.headers) as response:
             if response.status_code == 200:
                 await self.parse_products(response)
-                asyncio.run_coroutine_threadsafe(
-                    self.parse(),
-                    asyncio.get_running_loop()
-                )
+                # asyncio.run_coroutine_threadsafe(
+                #     self.parse(),
+                #     asyncio.get_running_loop()
+                # )
             else:
                 return {
                     'status': 'Unable to get product details',
