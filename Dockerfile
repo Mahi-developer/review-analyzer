@@ -7,4 +7,4 @@ RUN pip install -r requirements.txt
 
 ADD . /app
 
-CMD ["python3", "app.py"]
+CMD ["python3", "run.py"]
